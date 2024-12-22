@@ -1,0 +1,149 @@
+import psycopg2
+
+# Fonction pour se connecter à la base de données
+def connecter_db():
+    try:
+        print("Connexion à la base de données...")
+        conn = psycopg2.connect(
+            host="localhost",        # Hôte du serveur PostgreSQL
+            database="repertoire",   # Nom de la base de données
+            user="postgres",         # Votre nom d'utilisateur PostgreSQL
+            password="97180565.Hi"   # Votre mot de passe PostgreSQL
+        )
+        print("Connexion réussie.")
+        return conn
+    except Exception as e:
+        print(f"Erreur de connexion à la base de données : {e}")
+        return None
+
+# Fonction pour créer la table si elle n'existe pas
+def creer_table(conn):
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS contacts (
+                    id SERIAL PRIMARY KEY,
+                    nom VARCHAR(100) NOT NULL,
+                    prenom VARCHAR(100) NOT NULL,
+                    numero VARCHAR(15) NOT NULL
+                );
+            """)
+            conn.commit()
+            print("Table 'contacts' créée ou déjà existante.")
+    except Exception as e:
+        print(f"Erreur lors de la création de la table : {e}")
+
+# Fonction pour ajouter un contact
+def add_contact(conn):
+    try:
+        nom = input("Entrez le nom du contact : ")
+        prenom = input("Entrez le prénom du contact : ")
+        while True:
+            numero = input("Entrez le numéro de téléphone du contact (8 à 12 chiffres) : ")
+            if numero.isdigit() and 8 <= len(numero) <= 12:
+                break
+            else:
+                print("Numéro invalide. Veuillez réessayer.")
+
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO contacts (nom, prenom, numero)
+                VALUES (%s, %s, %s);
+            """, (nom, prenom, numero))
+            conn.commit()
+            print("Contact ajouté avec succès.")
+    except Exception as e:
+        print(f"Erreur lors de l'ajout du contact : {e}")
+
+# Fonction pour afficher tous les contacts
+def print_repertoire(conn):
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM contacts;")
+            contacts = cur.fetchall()
+            if not contacts:
+                print("Le répertoire est vide.")
+                return
+
+            print("\nListe des contacts :")
+            for contact in contacts:
+                print(f"ID : {contact[0]}, Nom : {contact[1]}, Prénom : {contact[2]}, Téléphone : {contact[3]}")
+    except Exception as e:
+        print(f"Erreur lors de l'affichage des contacts : {e}")
+
+# Fonction pour modifier un contact
+def rectifier_les_données(conn):
+    try:
+        with conn.cursor() as cur:
+            contact_id = input("Entrez l'ID du contact à modifier : ")
+            cur.execute("SELECT * FROM contacts WHERE id = %s;", (contact_id,))
+            contact = cur.fetchone()
+
+            if not contact:
+                print("Aucun contact trouvé avec cet ID.")
+                return
+
+            print(f"Modification du contact : {contact[1]} {contact[2]} ({contact[3]})")
+            choix = input("Quel champ voulez-vous modifier ? (nom, prenom, numero) : ").lower()
+
+            if choix == "nom":
+                nouveau_nom = input("Entrez le nouveau nom : ")
+                cur.execute("UPDATE contacts SET nom = %s WHERE id = %s;", (nouveau_nom, contact_id))
+            elif choix == "prenom":
+                nouveau_prenom = input("Entrez le nouveau prénom : ")
+                cur.execute("UPDATE contacts SET prenom = %s WHERE id = %s;", (nouveau_prenom, contact_id))
+            elif choix == "numero":
+                while True:
+                    nouveau_numero = input("Entrez le nouveau numéro de téléphone : ")
+                    if nouveau_numero.isdigit() and 8 <= len(nouveau_numero) <= 12:
+                        break
+                    else:
+                        print("Numéro invalide. Veuillez réessayer.")
+                cur.execute("UPDATE contacts SET numero = %s WHERE id = %s;", (nouveau_numero, contact_id))
+            else:
+                print("Champ invalide.")
+                return
+
+            conn.commit()
+            print("Contact modifié avec succès.")
+    except Exception as e:
+        print(f"Erreur lors de la modification du contact : {e}")
+
+# Programme principal
+def main():
+    conn = connecter_db()
+    if not conn:
+        print("Impossible de continuer sans connexion à la base de données.")
+        return
+
+    creer_table(conn)
+
+    while True:
+        print("\nMenu :")
+        print("1. Ajouter un contact")
+        print("2. Modifier un contact")
+        print("3. Afficher les contacts")
+        print("4. Quitter")
+
+        try:
+            choix = int(input("Entrez votre choix : "))
+        except ValueError:
+            print("Veuillez entrer un nombre valide.")
+            continue
+
+        if choix == 1:
+            add_contact(conn)
+        elif choix == 2:
+            rectifier_les_données(conn)
+        elif choix == 3:
+            print_repertoire(conn)
+        elif choix == 4:
+            print("Au revoir !")
+            conn.close()
+            break
+        else:
+            print("Choix invalide. Réessayez.")
+
+# Exécuter le programme
+if __name__ == "__main__":
+    main()
